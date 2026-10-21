@@ -1,0 +1,68 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: ms-pedidos360-notify
+  rabbitmq:
+    addresses: ${RABBIT_ADDRESSES:localhost:5672}
+    username: ${RABBIT_USERNAME:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+  # Solo se usa con MAIL_ENABLED=true (en local: Mailpit de docker-compose.override.yml).
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  health:
+    # Ni Rabbit ni el SMTP caídos deben dejar el health en DOWN (el compose/ALB reiniciaría el servicio
+    # sin motivo); los listeners se reconectan solos.
+    rabbit:
+      enabled: false
+    mail:
+      enabled: false
+
+pedidos360:
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@pedidos360.cl}
+  consumidor:
+    max-intentos: ${NOTIFY_MAX_INTENTOS:3}
+    espera-reintento: ${NOTIFY_ESPERA_REINTENTO:200ms}
+    cache-event-ids: ${NOTIFY_CACHE_EVENT_IDS:10000}
+    # false: los listeners de las DLQ no arrancan y los mensajes quedan en la DLQ (para verlos en la UI).
+    dlq-listeners: ${NOTIFY_DLQ_LISTENERS:true}
+  # Misma topología que ms-pedidos360-orders (ver "Contrato para otros servicios" en su README): si un
+  # argumento difiere, RabbitMQ rechaza la declaración (PRECONDITION_FAILED).
+  rabbit:
+    declare-topology: ${RABBIT_DECLARE_TOPOLOGY:true}
+    exchanges:
+      direct: cmd.direct
+      topic: cmd.topic
+      dlx: cmd.dead.dlx
+    queues:
+      email: q.cmd.email
+      kitchen: q.cmd.kitchen
+      invoice: q.cmd.invoice
+    routing-keys:
+      email: email.send
+      kitchen: kitchen.ticket
+      invoice: invoice.gen
+    topic-patterns:
+      email: "email.*"
+      kitchen: "kitchen.#"
+      invoice: "invoice.*"
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"

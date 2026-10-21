@@ -1,0 +1,99 @@
+package com.pedidos360.notify.processing;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Component;
+
+import com.pedidos360.notify.config.MailProperties;
+import com.pedidos360.notify.messaging.MensajeInvalidoException;
+import com.pedidos360.notify.messaging.dto.CommandEnvelope;
+import com.pedidos360.notify.messaging.dto.PedidoComandoPayload;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * email.send: arma el correo al cliente según el estado nuevo del pedido. Con
+ * pedidos360.mail.enabled=true lo envía por SMTP; si no (modo demo, default) lo registra completo en el log.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class EmailProcessor implements ProcesadorComando {
+
+    public record Email(String para, String asunto, String cuerpo) {
+    }
+
+    private final MailProperties mailProperties;
+    private final ObjectProvider<JavaMailSender> mailSender;
+
+    @Override
+    public String nombre() {
+        return "email";
+    }
+
+    @Override
+    public void procesar(CommandEnvelope envelope) {
+        Email email = construir(envelope);
+        if (!mailProperties.enabled()) {
+            log.info("[modo demo, MAIL_ENABLED=false] Email no enviado:\nDe: {}\nPara: {}\nAsunto: {}\n\n{}",
+                    mailProperties.from(), email.para(), email.asunto(), email.cuerpo());
+            return;
+        }
+        JavaMailSender sender = mailSender.getIfAvailable();
+        if (sender == null) {
+            throw new IllegalStateException("MAIL_ENABLED=true pero no hay JavaMailSender (falta MAIL_HOST)");
+        }
+        SimpleMailMessage mensaje = new SimpleMailMessage();
+        mensaje.setFrom(mailProperties.from());
+        mensaje.setTo(email.para());
+        mensaje.setSubject(email.asunto());
+        mensaje.setText(email.cuerpo());
+        sender.send(mensaje);
+        log.info("Email enviado a {}: {}", email.para(), email.asunto());
+    }
+
+    public Email construir(CommandEnvelope envelope) {
+        PedidoComandoPayload p = Formato.payload(envelope);
+        if (p.clienteEmail() == null || p.clienteEmail().isBlank()) {
+            throw new MensajeInvalidoException("El pedido " + p.pedidoId() + " no trae clienteEmail");
+        }
+        String estado = p.estadoNuevo() == null ? "" : p.estadoNuevo();
+        String asunto = switch (estado) {
+            case "CREADO" -> "Recibimos tu pedido #%d";
+            case "ACEPTADO" -> "Tu pedido #%d fue aceptado";
+            case "EN_PREPARACION" -> "Tu pedido #%d está en preparación";
+            case "DESPACHADO" -> "Tu pedido #%d va en camino";
+            case "ENTREGADO" -> "Tu pedido #%d fue entregado";
+            case "CANCELADO" -> "Tu pedido #%d fue cancelado";
+            default -> "Actualización de tu pedido #%d";
+        };
+        String detalle = switch (estado) {
+            case "CREADO" -> "Recibimos tu pedido. Te avisaremos cuando sea aceptado.";
+            case "ACEPTADO" -> "Tu pedido fue aceptado y pronto pasará a cocina.";
+            case "EN_PREPARACION" -> "Estamos preparando tu pedido.";
+            case "DESPACHADO" -> "Tu pedido salió a reparto y va en camino a tu dirección.";
+            case "ENTREGADO" -> "Tu pedido fue entregado. Adjuntamos el resumen de tu compra. ¡Gracias por preferirnos!";
+            case "CANCELADO" -> "Tu pedido fue cancelado. Si no reconoces esta cancelación, contáctanos.";
+            default -> "El estado de tu pedido cambió a " + estado + ".";
+        };
+
+        StringBuilder cuerpo = new StringBuilder()
+                .append("Hola ").append(p.clienteNombre() == null ? "cliente" : p.clienteNombre()).append(",\n\n")
+                .append(detalle).append("\n\n")
+                .append("Pedido: #").append(p.pedidoId()).append('\n')
+                .append("Estado: ").append(p.estadoAnterior() == null ? "" : p.estadoAnterior() + " -> ")
+                .append(estado).append('\n')
+                .append("Fecha: ").append(Formato.fecha(p.fecha())).append('\n');
+        if (p.items() != null && !p.items().isEmpty()) {
+            cuerpo.append("\nDetalle:\n");
+            p.items().forEach(i -> cuerpo.append("  - ").append(i.cantidad()).append(" x ")
+                    .append(i.productoNombre()).append(" (").append(Formato.pesos(i.subtotal())).append(")\n"));
+        }
+        cuerpo.append("Total: ").append(Formato.pesos(p.total())).append("\n\n")
+                .append("Equipo Pedidos360");
+
+        return new Email(p.clienteEmail(), asunto.formatted(p.pedidoId()), cuerpo.toString());
+    }
+}

@@ -1,0 +1,23 @@
+# Notificaciones (consumidor RabbitMQ). En la EC2 se usa este archivo tal cual (imagen de GHCR) y
+# RabbitMQ vive en su propio clúster; en local se suma docker-compose.override.yml (compila la imagen
+# y agrega Mailpit). Variables: copiar .env.example a .env (en la EC2 el .env lo crea CloudFormation).
+services:
+  notify:
+    image: ${NOTIFY_IMAGE:-ghcr.io/felruizrojas/ms-pedidos360-notify:latest}
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      RABBIT_ADDRESSES: ${RABBIT_ADDRESSES:?falta RABBIT_ADDRESSES en .env}
+      RABBIT_USERNAME: ${RABBIT_USERNAME:?falta RABBIT_USERNAME en .env}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:?falta RABBIT_PASSWORD en .env}
+      RABBIT_DECLARE_TOPOLOGY: ${RABBIT_DECLARE_TOPOLOGY:-true}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-localhost}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@pedidos360.cl}
+      NOTIFY_MAX_INTENTOS: ${NOTIFY_MAX_INTENTOS:-3}
+      NOTIFY_DLQ_LISTENERS: ${NOTIFY_DLQ_LISTENERS:-true}
+    mem_limit: 512m

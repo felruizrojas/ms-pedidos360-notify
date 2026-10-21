@@ -1,0 +1,14 @@
+# Solo local: compila la imagen desde el código. Mailpit (SMTP falso con UI en http://localhost:8025)
+# solo se levanta con el perfil "mail":  MAIL_ENABLED=true docker compose --profile mail up
+# (con MAIL_HOST=mailpit y MAIL_PORT=1025 en .env).
+services:
+  notify:
+    build: .
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: ["mail"]
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # UI web
+      - "1025:1025"   # SMTP

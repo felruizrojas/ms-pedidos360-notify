@@ -1,0 +1,11 @@
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
+
+pedidos360:
+  rabbit:
+    declare-topology: false
+  consumidor:
+    dlq-listeners: false
