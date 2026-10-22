@@ -2,19 +2,36 @@ package com.pedidos360.notify.processing;
 
 import java.math.BigDecimal;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
+import com.pedidos360.notify.config.MailProperties;
 import com.pedidos360.notify.messaging.dto.CommandEnvelope;
 import com.pedidos360.notify.messaging.dto.PedidoComandoPayload;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/** invoice.gen: registra en el log la boleta del pedido entregado (ítems, subtotales y total). */
+/**
+ * invoice.gen: registra en el log la boleta del pedido entregado (ítems, subtotales y total) y se la envía
+ * al cliente en un correo propio con la boleta en PDF adjunta. Con pedidos360.mail.enabled=false (modo demo)
+ * el PDF se genera igual pero no se envía. El aviso "Tu pedido fue entregado" lo manda email.send aparte.
+ */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class InvoiceProcessor implements ProcesadorComando {
 
     private static final String LINEA = "-".repeat(56);
+
+    private final MailProperties mailProperties;
+    private final ObjectProvider<JavaMailSender> mailSender;
+    private final BoletaPdf boletaPdf;
 
     @Override
     public String nombre() {
@@ -33,6 +50,40 @@ public class InvoiceProcessor implements ProcesadorComando {
                     suma, p.total(), p.pedidoId());
         }
         log.info("Boleta generada:\n{}", construir(envelope));
+        enviarPdf(p);
+    }
+
+    private void enviarPdf(PedidoComandoPayload p) {
+        byte[] pdf = boletaPdf.generar(p);
+        String archivo = "boleta-pedido-" + p.pedidoId() + ".pdf";
+        if (!mailProperties.enabled()) {
+            log.info("[modo demo, MAIL_ENABLED=false] Boleta PDF no enviada: {} ({} bytes)", archivo, pdf.length);
+            return;
+        }
+        // La boleta ya quedó en el log; sin destinatario no hay a quién enviar el PDF (no es motivo de DLQ).
+        if (p.clienteEmail() == null || p.clienteEmail().isBlank()) {
+            log.warn("El pedido {} no trae clienteEmail: la boleta PDF no se envía", p.pedidoId());
+            return;
+        }
+        JavaMailSender sender = mailSender.getIfAvailable();
+        if (sender == null) {
+            throw new IllegalStateException("MAIL_ENABLED=true pero no hay JavaMailSender (falta MAIL_HOST)");
+        }
+        MimeMessage mensaje = sender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, "UTF-8");
+            helper.setFrom(mailProperties.from());
+            helper.setTo(p.clienteEmail());
+            helper.setSubject("Boleta de tu pedido #" + p.pedidoId());
+            helper.setText("Hola " + (p.clienteNombre() == null ? "cliente" : p.clienteNombre()) + ",\n\n"
+                    + "Adjuntamos la boleta de tu pedido #" + p.pedidoId() + " por un total de "
+                    + Formato.pesos(p.total()) + ".\n\nEquipo Pedidos360");
+            helper.addAttachment(archivo, new ByteArrayResource(pdf), "application/pdf");
+        } catch (MessagingException ex) {
+            throw new IllegalStateException("No se pudo armar el correo de la boleta del pedido " + p.pedidoId(), ex);
+        }
+        sender.send(mensaje);
+        log.info("Boleta PDF enviada a {}: {}", p.clienteEmail(), archivo);
     }
 
     public String construir(CommandEnvelope envelope) {

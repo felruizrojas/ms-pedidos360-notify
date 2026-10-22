@@ -50,6 +50,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
+		<!-- Boleta en PDF adjunta al correo de invoice.gen (sin dependencias obligatorias) -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>2.4.0</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.projectlombok</groupId>

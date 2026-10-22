@@ -55,7 +55,7 @@ El contrato completo (sobre, payload y propiedades AMQP) está en el README de m
 |---|---|---|---|
 | `q.cmd.email` | `email.send` | Al crear y en **cada** cambio de estado | Arma el email (asunto y cuerpo según `estadoNuevo`). Con `MAIL_ENABLED=true` lo envía por SMTP; si no (default), lo registra completo en el log |
 | `q.cmd.kitchen` | `kitchen.ticket` | Al pasar a ACEPTADO | Registra en el log el ticket de cocina (pedido, ítems y cantidades) |
-| `q.cmd.invoice` | `invoice.gen` | Al pasar a ENTREGADO | Registra en el log la boleta (ítems, precio unitario, subtotales y total) |
+| `q.cmd.invoice` | `invoice.gen` | Al pasar a ENTREGADO | Registra en el log la boleta (ítems, precio unitario, subtotales y total) y, con `MAIL_ENABLED=true`, la envía al cliente en un correo propio ("Boleta de tu pedido #N") con `boleta-pedido-N.pdf` adjunta (OpenPDF). Sin `clienteEmail` solo la registra |
 | `q.cmd.email.dlq` / `q.cmd.kitchen.dlq` / `q.cmd.invoice.dlq` | (`cmd.dead.dlx`) | Cuando notify hace NACK | `log.error` "MENSAJE NO ENTREGADO" con los datos de `x-death` y ACK |
 
 Las colas y sus argumentos son **idénticos** a los de orders y de `infra/mq/definitions.json` (`x-dead-letter-exchange=cmd.dead.dlx`, `x-dead-letter-routing-key=<rk>`; las DLQ sin argumentos). Si difirieran, RabbitMQ rechazaría la declaración con `PRECONDITION_FAILED`.

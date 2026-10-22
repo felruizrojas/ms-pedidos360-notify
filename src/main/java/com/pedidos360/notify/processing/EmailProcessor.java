@@ -74,7 +74,7 @@ public class EmailProcessor implements ProcesadorComando {
             case "ACEPTADO" -> "Tu pedido fue aceptado y pronto pasará a cocina.";
             case "EN_PREPARACION" -> "Estamos preparando tu pedido.";
             case "DESPACHADO" -> "Tu pedido salió a reparto y va en camino a tu dirección.";
-            case "ENTREGADO" -> "Tu pedido fue entregado. Adjuntamos el resumen de tu compra. ¡Gracias por preferirnos!";
+            case "ENTREGADO" -> "Tu pedido fue entregado. Te enviamos la boleta en PDF en un correo aparte. ¡Gracias por preferirnos!";
             case "CANCELADO" -> "Tu pedido fue cancelado. Si no reconoces esta cancelación, contáctanos.";
             default -> "El estado de tu pedido cambió a " + estado + ".";
         };
