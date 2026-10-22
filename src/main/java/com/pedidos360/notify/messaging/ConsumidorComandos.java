@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * <li>deserializa el sobre con el converter JSON (tipo fijo: se ignora __TypeId__)</li>
  * <li>eventId repetido → ACK sin reprocesar</li>
  * <li>procesa con reintento local acotado (max-intentos); x-simular-error=true falla a propósito</li>
- * <li>éxito → basicAck; error → basicNack(requeue=false) y RabbitMQ lo manda a la DLQ por x-dead-letter-exchange</li>
+ * <li>éxito → basicAck; error → basicNack(requeue=false) y RabbitMQ lo manda a la DLQ por la policy dead-letter de la cola</li>
  * </ol>
  * Un mensaje inválido (JSON mal formado, sin eventId o sin datos obligatorios) no se reintenta.
  */

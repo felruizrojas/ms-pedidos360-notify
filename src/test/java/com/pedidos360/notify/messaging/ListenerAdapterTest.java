@@ -45,6 +45,15 @@ class ListenerAdapterTest {
     }
 
     @Test
+    void notificacionDePruebaEnEmailHaceAck() throws Exception {
+        Channel channel = mock(Channel.class);
+        var container = (AbstractMessageListenerContainer) registry.getListenerContainer("email");
+        ((ChannelAwareMessageListener) container.getMessageListener())
+                .onMessage(NotificationConsumerTest.notificacion(NotificationConsumerTest.NOTIFICACION_JSON, 34), channel);
+        verify(channel).basicAck(34, false);
+    }
+
+    @Test
     void elListenerDeDlqHaceAck() throws Exception {
         Channel channel = mock(Channel.class);
         entregar("invoice-dlq", "cualquier cosa", 33, channel);

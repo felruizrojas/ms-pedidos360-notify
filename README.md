@@ -7,9 +7,10 @@ No tiene base de datos ni endpoints de negocio: **consume** los comandos que pub
 ## Qué cubre de la evaluación
 | Requisito | Implementación |
 |---|---|
-| Microservicio Spring Boot que compila y pasa pruebas | `./mvnw clean verify` (26 tests, sin RabbitMQ real: `Channel` mockeado) |
+| Microservicio Spring Boot que compila y pasa pruebas | `./mvnw clean verify` (34 tests, sin RabbitMQ real: `Channel` mockeado) |
 | Leer mensajes de las colas | Un `@RabbitListener` por cola: `q.cmd.email`, `q.cmd.kitchen`, `q.cmd.invoice` |
-| ACK / NACK explícitos | `acknowledge-mode: manual`; `basicAck` si sale bien, `basicNack(requeue=false)` si falla → RabbitMQ lo manda a la DLQ por `x-dead-letter-exchange` |
+| ACK / NACK explícitos | `acknowledge-mode: manual`; `basicAck` si sale bien, `basicNack(requeue=false)` si falla → RabbitMQ lo manda a la DLQ por la policy `policy.*.dlx` de la cola |
+| Guía Parte 2 | En `q.cmd.email`, un mensaje con `type=TestNotification` (de `POST /api/orders/test-notification`) se registra como en el `NotificationConsumer` de la guía y se confirma con ACK |
 | Registrar los mensajes no entregados desde las DLQ | Un `@RabbitListener` por DLQ (`q.cmd.*.dlq`): `log.error` con cola de origen, routing key, motivo y veces (`x-death`), `eventId`, `correlationId` y body; luego ACK |
 | Idempotencia (entrega al-menos-una-vez) | Caché en memoria de los últimos 10.000 `eventId`: un repetido recibe ACK sin reprocesar |
 | Trazabilidad | `correlationId` del sobre en el MDC: aparece en cada línea del log (`INFO [req-123] ...`) |
@@ -26,7 +27,7 @@ flowchart LR
     D -- email.send --> QE[q.cmd.email]
     D -- kitchen.ticket --> QK[q.cmd.kitchen]
     D -- invoice.gen --> QI[q.cmd.invoice]
-    T -. "email.* / kitchen.# / invoice.*" .-> QE & QK & QI
+    T -. "email.# / kitchen.# / invoice.*" .-> QE & QK & QI
 
     subgraph notify [ms-pedidos360-notify]
         LE[EmailProcessor<br/>email al cliente]
@@ -54,11 +55,12 @@ El contrato completo (sobre, payload y propiedades AMQP) está en el README de m
 | Cola | Routing key (`cmd.direct`) | Cuándo la publica orders | Qué hace notify |
 |---|---|---|---|
 | `q.cmd.email` | `email.send` | Al crear y en **cada** cambio de estado | Arma el email (asunto y cuerpo según `estadoNuevo`). Con `MAIL_ENABLED=true` lo envía por SMTP; si no (default), lo registra completo en el log |
+| `q.cmd.email` (`type=TestNotification`) | `email.send` | `POST /api/orders/test-notification` (guía Parte 2) | `NotificationConsumer`: registra `Notificacion recibida`, `Pedido`, `Destinatario`, `Asunto` y `Mensaje` y hace ACK. No envía correo. JSON ilegible: NACK → DLQ |
 | `q.cmd.kitchen` | `kitchen.ticket` | Al pasar a ACEPTADO | Registra en el log el ticket de cocina (pedido, ítems y cantidades) |
 | `q.cmd.invoice` | `invoice.gen` | Al pasar a ENTREGADO | Registra en el log la boleta (ítems, precio unitario, subtotales y total) y, con `MAIL_ENABLED=true`, la envía al cliente en un correo propio ("Boleta de tu pedido #N") con `boleta-pedido-N.pdf` adjunta (OpenPDF). Sin `clienteEmail` solo la registra |
 | `q.cmd.email.dlq` / `q.cmd.kitchen.dlq` / `q.cmd.invoice.dlq` | (`cmd.dead.dlx`) | Cuando notify hace NACK | `log.error` "MENSAJE NO ENTREGADO" con los datos de `x-death` y ACK |
 
-Las colas y sus argumentos son **idénticos** a los de orders y de `infra/mq/definitions.json` (`x-dead-letter-exchange=cmd.dead.dlx`, `x-dead-letter-routing-key=<rk>`; las DLQ sin argumentos). Si difirieran, RabbitMQ rechazaría la declaración con `PRECONDITION_FAILED`.
+Las colas se declaran **igual** que en orders y en `infra/mq/definitions.json`: durables y **sin argumentos**. El DLX lo aplican las policies del broker (`policy.email.dlx`, `policy.kitchen.dlx`, `policy.invoice.dlx` → `cmd.dead.dlx` con la routing key de cada cola). Si notify enviara argumentos, RabbitMQ rechazaría la declaración con `PRECONDITION_FAILED`.
 
 ### Qué pasa con cada mensaje
 | Caso | Resultado | Log |
@@ -131,7 +133,7 @@ Preparación: RabbitMQ y notify corriendo. Se abren lado a lado la UI de RabbitM
 > Para que el error simulado vaya directo a la DLQ, sin reintentos, se usa `NOTIFY_MAX_INTENTOS=1`.
 
 ## Decisiones de diseño
-- **ACK manual y NACK sin reencolar.** `requeue=false` hace que RabbitMQ aplique el `x-dead-letter-exchange` de la cola. Con `requeue=true`, un mensaje que siempre falla se reentregaría en bucle.
+- **ACK manual y NACK sin reencolar.** `requeue=false` hace que RabbitMQ aplique el `dead-letter-exchange` de la policy de la cola. Con `requeue=true`, un mensaje que siempre falla se reentregaría en bucle.
 - **Los listeners reciben el cuerpo crudo.** La factory de listeners usa un converter que no convierte, y la deserialización se hace dentro de `ConsumidorComandos` con el mismo `JacksonJsonMessageConverter` de orders (Jackson 3) y un tipo destino fijo. Así se ignora el `__TypeId__` de orders, que nombra una clase que no existe en notify. Si el adaptador de `@RabbitListener` convirtiera antes de llamar al método, un JSON inválido o un `__TypeId__` desconocido fallaría fuera del listener y, en modo `manual`, el mensaje quedaría *unacked* para siempre. Eso pasó en la primera prueba de punta a punta y lo cubre `ListenerAdapterTest`.
 - **Reintento local acotado** (3 intentos, 200 ms, configurable). Aplica a los errores de procesamiento, que pueden ser transitorios, e incluye el error simulado, para que la demo muestre los reintentos y luego la DLQ. Los mensajes inválidos no se reintentan. Es un bucle en el mismo hilo (sin Spring Retry): durante la espera, ese consumidor no toma otros mensajes.
 - **Idempotencia en memoria.** LRU de los últimos 10.000 `eventId`. Un `eventId` se registra solo después de procesarlo con éxito, así que un mensaje que falló no queda marcado. Funciona con **una réplica**: con varias réplicas, o para sobrevivir a reinicios, haría falta un almacén compartido (Redis con TTL o una tabla con `eventId` único).

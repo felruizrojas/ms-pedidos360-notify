@@ -13,18 +13,26 @@ import com.rabbitmq.client.Channel;
 
 import lombok.RequiredArgsConstructor;
 
-/** Un @RabbitListener por cola de comandos. Reciben el Message crudo para controlar ACK/NACK. */
+/**
+ * Un @RabbitListener por cola de comandos. Reciben el Message crudo para controlar ACK/NACK.
+ * En q.cmd.email también llega la notificación de prueba de la guía Parte 2 (type=TestNotification).
+ */
 @Component
 @RequiredArgsConstructor
 public class ComandoListener {
 
     private final ConsumidorComandos consumidor;
+    private final NotificationConsumer notificacionPrueba;
     private final EmailProcessor email;
     private final KitchenTicketProcessor kitchen;
     private final InvoiceProcessor invoice;
 
     @RabbitListener(id = "email", queues = "${pedidos360.rabbit.queues.email}")
     public void onEmail(Message message, Channel channel) throws IOException {
+        if (NotificationConsumer.esNotificacionPrueba(message)) {
+            notificacionPrueba.consumir(message, channel);
+            return;
+        }
         consumidor.consumir(message, channel, email);
     }
 
