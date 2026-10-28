@@ -8,7 +8,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 import com.pedidos360.notify.config.MailProperties;
-import com.pedidos360.notify.messaging.MensajeInvalidoException;
 import com.pedidos360.notify.messaging.dto.CommandEnvelope;
 import com.pedidos360.notify.messaging.dto.PedidoComandoPayload;
 
@@ -69,9 +68,7 @@ public class EmailProcessor implements ProcesadorComando {
 
     public Email construir(CommandEnvelope envelope) {
         PedidoComandoPayload p = Formato.payload(envelope);
-        if (p.clienteEmail() == null || p.clienteEmail().isBlank()) {
-            throw new MensajeInvalidoException("El pedido " + p.pedidoId() + " no trae clienteEmail");
-        }
+        Formato.exigirEmail(p);
         String estado = p.estadoNuevo() == null ? "" : p.estadoNuevo();
         String[] porType = switch (envelope.type() == null ? "" : envelope.type()) {
             case TYPE_MODIFICADO -> new String[] { "Tu pedido #%d fue modificado",

@@ -45,8 +45,9 @@ public class InvoiceProcessor implements ProcesadorComando {
 
     @Override
     public void procesar(CommandEnvelope envelope) {
-        // Formato.payload ya rechaza (DLQ) un total que no coincide con la suma de los subtotales.
+        // Formato rechaza (DLQ) un total que no coincide con la suma de los subtotales y un pedido sin clienteEmail.
         PedidoComandoPayload p = Formato.payload(envelope);
+        Formato.exigirEmail(p);
         log.info("Boleta generada:\n{}", construir(envelope));
         enviarPdf(p);
     }
@@ -56,11 +57,6 @@ public class InvoiceProcessor implements ProcesadorComando {
         String archivo = "boleta-pedido-" + p.pedidoId() + ".pdf";
         if (!mailProperties.enabled()) {
             log.info("[modo demo, MAIL_ENABLED=false] Boleta PDF no enviada: {} ({} bytes)", archivo, pdf.length);
-            return;
-        }
-        // La boleta ya quedó en el log; sin destinatario no hay a quién enviar el PDF (no es motivo de DLQ).
-        if (p.clienteEmail() == null || p.clienteEmail().isBlank()) {
-            log.warn("El pedido {} no trae clienteEmail: la boleta PDF no se envía", p.pedidoId());
             return;
         }
         JavaMailSender sender = mailSender.getIfAvailable();

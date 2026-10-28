@@ -83,15 +83,18 @@ class InvoiceProcessorTest {
     }
 
     @Test
-    void sinEmailDelClienteNoEnviaPeroNoFalla() {
+    void sinEmailDelClienteEsInvalidoYVaALaDlq() {
         CommandEnvelope e = Ejemplos.envelope("DESPACHADO", "ENTREGADO");
         PedidoComandoPayload p = e.payload();
         CommandEnvelope sinEmail = new CommandEnvelope(e.type(), e.eventId(), e.timestamp(), e.traceId(), e.correlationId(),
                 new PedidoComandoPayload(p.pedidoId(), p.clienteId(), p.clienteNombre(), null, p.estadoAnterior(),
                         p.estadoNuevo(), p.total(), p.items(), p.fecha()));
 
-        processor(true).procesar(sinEmail);
-
+        assertThatThrownBy(() -> processor(true).procesar(sinEmail))
+                .isInstanceOf(MensajeInvalidoException.class)
+                .hasMessageContaining("no trae clienteEmail");
+        // También en modo demo: el mensaje es inválido aunque no se vaya a enviar.
+        assertThatThrownBy(() -> processor(false).procesar(sinEmail)).isInstanceOf(MensajeInvalidoException.class);
         verify(sender, never()).send(any(MimeMessage.class));
     }
 

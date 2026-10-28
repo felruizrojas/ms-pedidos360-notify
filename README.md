@@ -57,7 +57,7 @@ El contrato completo (sobre, payload y propiedades AMQP) está en el README de m
 | `q.cmd.email` | `email.send` | Al crear y en **cada** cambio de estado | Arma el email (asunto y cuerpo según `estadoNuevo`). Con `MAIL_ENABLED=true` lo envía por SMTP; si no (default), lo registra completo en el log |
 | `q.cmd.email` (`type=TestNotification`) | `email.send` | `POST /api/orders/test-notification` (guía Parte 2) | `NotificationConsumer`: registra `Notificacion recibida`, `Pedido`, `Destinatario`, `Asunto` y `Mensaje` y hace ACK. No envía correo. JSON ilegible: NACK → DLQ |
 | `q.cmd.kitchen` | `kitchen.ticket` | Al pasar a ACEPTADO | Registra en el log el ticket de cocina (pedido, ítems y cantidades) |
-| `q.cmd.invoice` | `invoice.gen` | Al pasar a ENTREGADO | Registra en el log la boleta (ítems, precio unitario, subtotales y total) y, con `MAIL_ENABLED=true`, la envía al cliente en un correo propio ("Boleta de tu pedido #N") con `boleta-pedido-N.pdf` adjunta (OpenPDF). Sin `clienteEmail` solo la registra |
+| `q.cmd.invoice` | `invoice.gen` | Al pasar a ENTREGADO | Registra en el log la boleta (ítems, precio unitario, subtotales y total) y, con `MAIL_ENABLED=true`, la envía al cliente en un correo propio ("Boleta de tu pedido #N") con `boleta-pedido-N.pdf` adjunta (OpenPDF). Sin `clienteEmail` es un mensaje inválido → DLQ |
 | `q.cmd.email.dlq` / `q.cmd.kitchen.dlq` / `q.cmd.invoice.dlq` | (`cmd.dead.dlx`) | Cuando notify hace NACK | `log.error` "MENSAJE NO ENTREGADO" con los datos de `x-death` y ACK |
 
 Las colas se declaran **igual** que en orders y en `infra/mq/definitions.json`: durables y **sin argumentos**. El DLX lo aplican las policies del broker (`policy.email.dlx`, `policy.kitchen.dlx`, `policy.invoice.dlx` → `cmd.dead.dlx` con la routing key de cada cola). Si notify enviara argumentos, RabbitMQ rechazaría la declaración con `PRECONDITION_FAILED`.
@@ -68,7 +68,7 @@ Las colas se declaran **igual** que en orders y en `infra/mq/definitions.json`: 
 | Procesado bien | `basicAck` | `INFO [email] ACK eventId=...` |
 | `eventId` ya procesado | `basicAck` sin reprocesar | `WARN ... duplicado (pedido 15): ACK sin reprocesar` |
 | Error de procesamiento (SMTP caído, header `x-simular-error=true`) | Se reintenta (3 intentos, 200 ms entre cada uno); si sigue fallando: `basicNack(requeue=false)` → DLQ | `WARN Intento 1/3 falló...` y luego `ERROR ... NACK sin reencolar -> DLQ` |
-| JSON inválido, sin `eventId`, `type` de otra cola o **información errónea**: sin `pedidoId`, `estadoNuevo` desconocido, `clienteEmail` ausente (email) o con formato inválido, sin `items`, ítem con cantidad ≤ 0 o sin precio, `subtotal` ≠ precio × cantidad, `total` ≠ suma de subtotales | `basicNack(requeue=false)` **sin** reintentos (fallaría igual) → DLQ | `ERROR ... No se pudo procesar el mensaje ...: <motivo>. NACK sin reencolar -> DLQ` |
+| JSON inválido, sin `eventId`, `type` de otra cola o **información errónea**: sin `pedidoId`, `estadoNuevo` desconocido, `clienteEmail` ausente (email e invoice) o con formato inválido, sin `items`, ítem con cantidad ≤ 0 o sin precio, `subtotal` ≠ precio × cantidad, `total` ≠ suma de subtotales | `basicNack(requeue=false)` **sin** reintentos (fallaría igual) → DLQ | `ERROR ... No se pudo procesar el mensaje ...: <motivo>. NACK sin reencolar -> DLQ` |
 
 ## Variables de entorno
 | Variable | Default |

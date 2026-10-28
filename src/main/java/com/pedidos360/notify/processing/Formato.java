@@ -80,4 +80,11 @@ final class Formato {
         }
         return p;
     }
+
+    /** Para los comandos que se envían al cliente (email e invoice): sin destinatario no hay a quién enviarlo. */
+    static void exigirEmail(PedidoComandoPayload p) {
+        if (p.clienteEmail() == null || p.clienteEmail().isBlank()) {
+            throw new MensajeInvalidoException("El pedido " + p.pedidoId() + " no trae clienteEmail");
+        }
+    }
 }
