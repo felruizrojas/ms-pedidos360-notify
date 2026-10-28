@@ -68,7 +68,7 @@ Las colas se declaran **igual** que en orders y en `infra/mq/definitions.json`: 
 | Procesado bien | `basicAck` | `INFO [email] ACK eventId=...` |
 | `eventId` ya procesado | `basicAck` sin reprocesar | `WARN ... duplicado (pedido 15): ACK sin reprocesar` |
 | Error de procesamiento (SMTP caído, header `x-simular-error=true`) | Se reintenta (3 intentos, 200 ms entre cada uno); si sigue fallando: `basicNack(requeue=false)` → DLQ | `WARN Intento 1/3 falló...` y luego `ERROR ... NACK sin reencolar -> DLQ` |
-| JSON inválido, sin `eventId` o sin datos obligatorios (`pedidoId`, `clienteEmail`, `items`) | `basicNack(requeue=false)` **sin** reintentos (fallaría igual) → DLQ | `ERROR ... El cuerpo no es un sobre JSON válido ...` |
+| JSON inválido, sin `eventId`, `type` de otra cola o **información errónea**: sin `pedidoId`, `estadoNuevo` desconocido, `clienteEmail` ausente (email) o con formato inválido, sin `items`, ítem con cantidad ≤ 0 o sin precio, `subtotal` ≠ precio × cantidad, `total` ≠ suma de subtotales | `basicNack(requeue=false)` **sin** reintentos (fallaría igual) → DLQ | `ERROR ... No se pudo procesar el mensaje ...: <motivo>. NACK sin reencolar -> DLQ` |
 
 ## Variables de entorno
 | Variable | Default |

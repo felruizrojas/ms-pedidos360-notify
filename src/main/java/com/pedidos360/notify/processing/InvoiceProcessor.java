@@ -1,6 +1,5 @@
 package com.pedidos360.notify.processing;
 
-import java.math.BigDecimal;
 import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -46,15 +45,8 @@ public class InvoiceProcessor implements ProcesadorComando {
 
     @Override
     public void procesar(CommandEnvelope envelope) {
-        PedidoComandoPayload p = Formato.payloadConItems(envelope);
-        BigDecimal suma = p.items().stream()
-                .map(PedidoComandoPayload.Item::subtotal)
-                .filter(s -> s != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (p.total() != null && suma.compareTo(p.total()) != 0) {
-            log.warn("La suma de subtotales ({}) no coincide con el total ({}) del pedido {}",
-                    suma, p.total(), p.pedidoId());
-        }
+        // Formato.payload ya rechaza (DLQ) un total que no coincide con la suma de los subtotales.
+        PedidoComandoPayload p = Formato.payload(envelope);
         log.info("Boleta generada:\n{}", construir(envelope));
         enviarPdf(p);
     }
@@ -93,7 +85,7 @@ public class InvoiceProcessor implements ProcesadorComando {
     }
 
     public String construir(CommandEnvelope envelope) {
-        PedidoComandoPayload p = Formato.payloadConItems(envelope);
+        PedidoComandoPayload p = Formato.payload(envelope);
         StringBuilder b = new StringBuilder()
                 .append("======================== BOLETA ========================\n")
                 .append("Pedido #").append(p.pedidoId()).append("   Fecha: ").append(Formato.fecha(p.fecha())).append('\n')

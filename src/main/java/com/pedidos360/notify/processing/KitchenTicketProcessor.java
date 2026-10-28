@@ -32,7 +32,7 @@ public class KitchenTicketProcessor implements ProcesadorComando {
     }
 
     public String construir(CommandEnvelope envelope) {
-        PedidoComandoPayload p = Formato.payloadConItems(envelope);
+        PedidoComandoPayload p = Formato.payload(envelope);
         StringBuilder t = new StringBuilder()
                 .append("=============== TICKET DE COCINA ===============\n")
                 .append("Pedido #").append(p.pedidoId()).append("   Aceptado: ").append(Formato.fecha(p.fecha())).append('\n')

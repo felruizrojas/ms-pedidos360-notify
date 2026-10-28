@@ -16,7 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * email.send: arma el correo al cliente según el estado nuevo del pedido. Con
+ * email.send: arma el correo al cliente según el type del comando (creado, cambio de estado, modificado o
+ * eliminado) y el estado nuevo del pedido. Con
  * pedidos360.mail.enabled=true lo envía por SMTP; si no (modo demo, default) lo registra completo en el log.
  */
 @Slf4j
@@ -26,6 +27,11 @@ public class EmailProcessor implements ProcesadorComando {
 
     public record Email(String para, String asunto, String cuerpo) {
     }
+
+    static final String TYPE_CREADO = "OrderCreated";
+    static final String TYPE_ESTADO = "OrderStatusChanged";
+    static final String TYPE_MODIFICADO = "OrderUpdated";
+    static final String TYPE_ELIMINADO = "OrderDeleted";
 
     private final MailProperties mailProperties;
     private final ObjectProvider<JavaMailSender> mailSender;
@@ -37,7 +43,7 @@ public class EmailProcessor implements ProcesadorComando {
 
     @Override
     public Set<String> tiposAceptados() {
-        return Set.of("OrderCreated", "OrderStatusChanged");
+        return Set.of(TYPE_CREADO, TYPE_ESTADO, TYPE_MODIFICADO, TYPE_ELIMINADO);
     }
 
     @Override
@@ -67,7 +73,14 @@ public class EmailProcessor implements ProcesadorComando {
             throw new MensajeInvalidoException("El pedido " + p.pedidoId() + " no trae clienteEmail");
         }
         String estado = p.estadoNuevo() == null ? "" : p.estadoNuevo();
-        String asunto = switch (estado) {
+        String[] porType = switch (envelope.type() == null ? "" : envelope.type()) {
+            case TYPE_MODIFICADO -> new String[] { "Tu pedido #%d fue modificado",
+                    "Tu pedido fue modificado. Este es el detalle actualizado." };
+            case TYPE_ELIMINADO -> new String[] { "Tu pedido #%d fue eliminado",
+                    "Tu pedido fue eliminado por el equipo de Pedidos360. Si no reconoces esta acción, contáctanos." };
+            default -> null;
+        };
+        String asunto = porType != null ? porType[0] : switch (estado) {
             case "CREADO" -> "Recibimos tu pedido #%d";
             case "ACEPTADO" -> "Tu pedido #%d fue aceptado";
             case "EN_PREPARACION" -> "Tu pedido #%d está en preparación";
@@ -76,7 +89,7 @@ public class EmailProcessor implements ProcesadorComando {
             case "CANCELADO" -> "Tu pedido #%d fue cancelado";
             default -> "Actualización de tu pedido #%d";
         };
-        String detalle = switch (estado) {
+        String detalle = porType != null ? porType[1] : switch (estado) {
             case "CREADO" -> "Recibimos tu pedido. Te avisaremos cuando sea aceptado.";
             case "ACEPTADO" -> "Tu pedido fue aceptado y pronto pasará a cocina.";
             case "EN_PREPARACION" -> "Estamos preparando tu pedido.";
@@ -90,7 +103,8 @@ public class EmailProcessor implements ProcesadorComando {
                 .append("Hola ").append(p.clienteNombre() == null ? "cliente" : p.clienteNombre()).append(",\n\n")
                 .append(detalle).append("\n\n")
                 .append("Pedido: #").append(p.pedidoId()).append('\n')
-                .append("Estado: ").append(p.estadoAnterior() == null ? "" : p.estadoAnterior() + " -> ")
+                .append("Estado: ")
+                .append(p.estadoAnterior() == null || p.estadoAnterior().equals(estado) ? "" : p.estadoAnterior() + " -> ")
                 .append(estado).append('\n')
                 .append("Fecha: ").append(Formato.fecha(p.fecha())).append('\n');
         if (p.items() != null && !p.items().isEmpty()) {

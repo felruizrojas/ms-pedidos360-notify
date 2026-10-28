@@ -54,6 +54,20 @@ class EmailProcessorTest {
     }
 
     @Test
+    void modificadoYEliminadoTienenSuPropioCorreo() {
+        EmailProcessor p = processor(false);
+        CommandEnvelope modificado = Ejemplos.JSON.readValue(
+                Ejemplos.conType(Ejemplos.envelopeJson("e-2", "CREADO", "CREADO"), "OrderUpdated"), CommandEnvelope.class);
+        CommandEnvelope eliminado = Ejemplos.JSON.readValue(
+                Ejemplos.conType(Ejemplos.envelopeJson("e-3", "CREADO", "CREADO"), "OrderDeleted"), CommandEnvelope.class);
+
+        assertThat(p.construir(modificado).asunto()).isEqualTo("Tu pedido #15 fue modificado");
+        assertThat(p.construir(modificado).cuerpo()).contains("detalle actualizado", "Estado: CREADO\n");
+        assertThat(p.construir(eliminado).asunto()).isEqualTo("Tu pedido #15 fue eliminado");
+        assertThat(p.construir(eliminado).cuerpo()).contains("fue eliminado por el equipo de Pedidos360");
+    }
+
+    @Test
     void enModoDemoNoEnvia() {
         processor(false).procesar(Ejemplos.envelope());
         verifyNoInteractions(sender);
