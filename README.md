@@ -142,3 +142,5 @@ Preparación: RabbitMQ y notify corriendo. Se abren lado a lado la UI de RabbitM
 - **Modo demo del email** (`MAIL_ENABLED=false`, default). No hace falta un SMTP para demostrar el flujo. Con Mailpit se ven los correos reales sin enviar nada a Internet.
 - **Health sin Rabbit ni mail** (`management.health.rabbit/mail.enabled=false`), igual que orders: que caiga el broker o el SMTP no debe dejar el servicio en DOWN, porque los listeners se reconectan solos.
 - **Estados como texto en el DTO** (`"ACEPTADO"`). Notify no se acopla al enum de orders, y un estado nuevo cae en un asunto genérico ("Actualización de tu pedido").
+
+#evaluacion 2
