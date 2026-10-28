@@ -15,7 +15,7 @@ No tiene base de datos ni endpoints de negocio: **consume** los comandos que pub
 | Idempotencia (entrega al-menos-una-vez) | Caché en memoria de los últimos 10.000 `eventId`: un repetido recibe ACK sin reprocesar |
 | Trazabilidad | `correlationId` del sobre en el MDC: aparece en cada línea del log (`INFO [req-123] ...`) |
 | Topología | Declara la misma que orders (`Declarables`) con `RABBIT_DECLARE_TOPOLOGY=true`: notify puede arrancar antes que orders |
-| Docker | `Dockerfile` multi-stage con usuario no root, `docker-compose.yml` (imagen GHCR) + override local con Mailpit |
+| Docker | `Dockerfile` multi-stage con usuario no root, `docker-compose.yml` (imagen GHCR + Mailpit con el perfil `mail`) + override local (compila la imagen) |
 | `.gitignore` | Excluye `target/`, IDE, `.DS_Store` y `.env` |
 
 ## Flujo

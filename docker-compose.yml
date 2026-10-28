@@ -1,6 +1,8 @@
 # Notificaciones (consumidor RabbitMQ). En la EC2 se usa este archivo tal cual (imagen de GHCR) y
-# RabbitMQ vive en su propio clúster; en local se suma docker-compose.override.yml (compila la imagen
-# y agrega Mailpit). Variables: copiar .env.example a .env (en la EC2 el .env lo crea CloudFormation).
+# RabbitMQ vive en su propio clúster; en local se suma docker-compose.override.yml (compila la imagen).
+# Variables: copiar .env.example a .env (en la EC2 el .env lo crea CloudFormation).
+# Mailpit (SMTP falso con UI en el puerto 8025) solo se levanta con el perfil "mail": en local
+# --profile mail; en la EC2, COMPOSE_PROFILES=mail en el .env. Va con MAIL_ENABLED=true y MAIL_HOST=mailpit.
 services:
   notify:
     image: ${NOTIFY_IMAGE:-ghcr.io/felruizrojas/ms-pedidos360-notify:latest}
@@ -22,3 +24,11 @@ services:
       NOTIFY_MAX_INTENTOS: ${NOTIFY_MAX_INTENTOS:-3}
       NOTIFY_DLQ_LISTENERS: ${NOTIFY_DLQ_LISTENERS:-true}
     mem_limit: 512m
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: ["mail"]
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # UI web (notify le envía por SMTP al 1025 dentro de la red de Compose)
+    mem_limit: 128m
