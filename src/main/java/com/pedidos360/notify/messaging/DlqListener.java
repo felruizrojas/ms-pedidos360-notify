@@ -21,7 +21,8 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Registra los mensajes no entregados (rúbrica: "registrar los mensajes no entregados desde las DLQ").
  * Lee el header x-death que agrega RabbitMQ (cola de origen, motivo, cantidad de veces) y hace ACK:
- * el log.error es la evidencia; el mensaje no se reprocesa.
+ * el log.error es la evidencia; el mensaje no se reprocesa. Además avisa a orders por RabbitMQ (resultado EN_DLQ),
+ * lo que cubre también los mensajes que expiraron sin que notify los viera (TTL de la cola).
  * Con NOTIFY_DLQ_LISTENERS=false no arrancan, y los mensajes quedan visibles en la DLQ (útil en la demo).
  */
 @Slf4j
@@ -33,9 +34,10 @@ public class DlqListener {
     private static final int MAX_BODY = 4000;
 
     private final JsonMapper jsonMapper;
+    private final PublicadorResultados resultados;
 
     public record DeadLetter(String colaOrigen, String exchangeOrigen, String routingKey, String motivo, long veces,
-            String eventId, String correlationId, String body) {
+            String eventId, String correlationId, String body, Long pedidoId, String type) {
     }
 
     @RabbitListener(id = "email-dlq", queues = "${pedidos360.rabbit.queues.email}.dlq", autoStartup = AUTO_STARTUP)
@@ -62,6 +64,10 @@ public class DlqListener {
                     + "eventId={} correlationId={} body={}", props.getConsumerQueue(), dl.colaOrigen(),
                     dl.exchangeOrigen(), dl.routingKey(), dl.motivo(), dl.veces(), dl.eventId(), dl.correlationId(),
                     dl.body());
+            if (dl.eventId() != null) {
+                resultados.publicar(dl.eventId(), dl.pedidoId(), comando(props.getConsumerQueue()), dl.type(),
+                        PublicadorResultados.EN_DLQ, motivoLegible(dl.motivo()), dl.colaOrigen(), dl.correlationId());
+            }
         } catch (RuntimeException ex) {
             // Nunca dejar el mensaje sin ACK en la DLQ: se registra lo que se pueda y se confirma igual.
             log.error("MENSAJE NO ENTREGADO en {} (no se pudo leer x-death: {}): body={}", props.getConsumerQueue(),
@@ -92,9 +98,14 @@ public class DlqListener {
         String body = new String(message.getBody(), StandardCharsets.UTF_8);
         String eventId = null;
         String correlationId = props.getCorrelationId();
+        Long pedidoId = null;
+        String type = null;
         try {
             JsonNode json = jsonMapper.readTree(body);
             eventId = campo(json, "eventId");
+            type = campo(json, "type");
+            JsonNode id = json.path("payload").path("pedidoId");
+            pedidoId = id.isNumber() ? id.asLong() : null;
             String cid = campo(json, "correlationId");
             if (cid != null) {
                 correlationId = cid;
@@ -105,7 +116,27 @@ public class DlqListener {
         if (body.length() > MAX_BODY) {
             body = body.substring(0, MAX_BODY) + "...(truncado)";
         }
-        return new DeadLetter(cola, exchange, routingKey, motivo, veces, eventId, correlationId, body);
+        return new DeadLetter(cola, exchange, routingKey, motivo, veces, eventId, correlationId, body, pedidoId, type);
+    }
+
+    /** q.cmd.kitchen.dlq -> kitchen. */
+    static String comando(String colaDlq) {
+        if (colaDlq == null) {
+            return null;
+        }
+        String sinDlq = colaDlq.endsWith(".dlq") ? colaDlq.substring(0, colaDlq.length() - 4) : colaDlq;
+        return sinDlq.substring(sinDlq.lastIndexOf('.') + 1);
+    }
+
+    private static String motivoLegible(String reason) {
+        if (reason == null) {
+            return "Llegó a la DLQ";
+        }
+        return switch (reason) {
+            case "rejected" -> "Rechazado (NACK): quedó en la DLQ";
+            case "expired" -> "Expiró sin que nadie lo consumiera (TTL): quedó en la DLQ";
+            default -> "Llegó a la DLQ (" + reason + ")";
+        };
     }
 
     private static String campo(JsonNode json, String nombre) {

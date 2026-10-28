@@ -68,6 +68,15 @@ class EmailProcessorTest {
     }
 
     @Test
+    void elCorreoIndicaQuienHizoLaAccionYSuRol() {
+        String json = Ejemplos.envelopeJson("e-4", "CREADO", "CANCELADO").replace("\"fecha\": \"2026-10-20T15:10:00.456Z\"",
+                "\"fecha\": \"2026-10-20T15:10:00.456Z\", \"usuarioNombre\": \"Olga Operadora\", \"usuarioRol\": \"Operador\"");
+        CommandEnvelope cancelado = Ejemplos.JSON.readValue(json, CommandEnvelope.class);
+
+        assertThat(processor(false).construir(cancelado).cuerpo()).contains("Realizado por: Olga Operadora (Operador)");
+    }
+
+    @Test
     void enModoDemoNoEnvia() {
         processor(false).procesar(Ejemplos.envelope());
         verifyNoInteractions(sender);
@@ -90,7 +99,7 @@ class EmailProcessorTest {
         PedidoComandoPayload p = e.payload();
         CommandEnvelope sinEmail = new CommandEnvelope(e.type(), e.eventId(), e.timestamp(), e.traceId(), e.correlationId(),
                 new PedidoComandoPayload(p.pedidoId(), p.clienteId(), p.clienteNombre(), null, p.estadoAnterior(),
-                        p.estadoNuevo(), p.total(), p.items(), p.fecha()));
+                        p.estadoNuevo(), p.total(), p.items(), p.fecha(), p.usuarioId(), p.usuarioNombre(), p.usuarioRol()));
 
         assertThatThrownBy(() -> processor(false).construir(sinEmail)).isInstanceOf(MensajeInvalidoException.class);
     }

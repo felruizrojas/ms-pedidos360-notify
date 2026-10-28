@@ -12,6 +12,7 @@ No tiene base de datos ni endpoints de negocio: **consume** los comandos que pub
 | ACK / NACK explícitos | `acknowledge-mode: manual`; `basicAck` si sale bien, `basicNack(requeue=false)` si falla → RabbitMQ lo manda a la DLQ por la policy `policy.*.dlx` de la cola |
 | Guía Parte 2 | En `q.cmd.email`, un mensaje con `type=TestNotification` (de `POST /api/orders/test-notification`) se registra como en el `NotificationConsumer` de la guía y se confirma con ACK |
 | Registrar los mensajes no entregados desde las DLQ | Un `@RabbitListener` por DLQ (`q.cmd.*.dlq`): `log.error` con cola de origen, routing key, motivo y veces (`x-death`), `eventId`, `correlationId` y body; luego ACK |
+| Informar el resultado a orders (vuelta por RabbitMQ) | `PublicadorResultados` publica en `evt.direct` → `q.orders.resultados`: `PROCESADO` tras el ACK, `FALLIDO` con el motivo tras el NACK y `EN_DLQ` desde el listener de la DLQ (también para lo que expiró). orders lo muestra en el dashboard del operador |
 | Idempotencia (entrega al-menos-una-vez) | Caché en memoria de los últimos 10.000 `eventId`: un repetido recibe ACK sin reprocesar |
 | Trazabilidad | `correlationId` del sobre en el MDC: aparece en cada línea del log (`INFO [req-123] ...`) |
 | Topología | Declara la misma que orders (`Declarables`) con `RABBIT_DECLARE_TOPOLOGY=true`: notify puede arrancar antes que orders |

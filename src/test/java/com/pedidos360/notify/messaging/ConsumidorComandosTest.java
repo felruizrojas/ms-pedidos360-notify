@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -34,12 +35,14 @@ class ConsumidorComandosTest {
 
     private final Channel channel = mock(Channel.class);
     private final ProcesadorComando procesador = mock(ProcesadorComando.class);
+    private final PublicadorResultados resultados = mock(PublicadorResultados.class);
     private ConsumidorComandos consumidor;
 
     @BeforeEach
     void setUp() {
         ConsumidorProperties props = new ConsumidorProperties(3, Duration.ofMillis(1), 100);
-        consumidor = new ConsumidorComandos(new JacksonJsonMessageConverter(Ejemplos.JSON), new EventIdCache(props), props);
+        consumidor = new ConsumidorComandos(new JacksonJsonMessageConverter(Ejemplos.JSON), new EventIdCache(props), props,
+                resultados);
         when(procesador.nombre()).thenReturn("email");
         when(procesador.tiposAceptados()).thenReturn(Set.of("OrderCreated", "OrderStatusChanged"));
     }
@@ -142,6 +145,25 @@ class ConsumidorComandosTest {
 
         verify(procesador, times(1)).procesar(any());
         verify(channel).basicNack(13, false, false);
+        // Vuelta a orders: FALLIDO con el motivo, asociado al eventId y al pedido del comando.
+        verify(resultados).publicar("0f8c7a52-3c1e-4a7e-9d43-6a1f0b9e2c11", 15L, "email", "OrderStatusChanged",
+                PublicadorResultados.FALLIDO, "sin items", "q.cmd.email", "req-123");
+    }
+
+    @Test
+    void procesadoOkInformaAOrders() throws Exception {
+        consumidor.consumir(Ejemplos.mensaje(Ejemplos.ENVELOPE_JSON, 23), channel, procesador);
+
+        verify(resultados).publicar("0f8c7a52-3c1e-4a7e-9d43-6a1f0b9e2c11", 15L, "email", "OrderStatusChanged",
+                PublicadorResultados.PROCESADO, null, "q.cmd.email", "req-123");
+    }
+
+    @Test
+    void jsonIlegibleNoInformaPorqueNoHayPedido() throws Exception {
+        consumidor.consumir(Ejemplos.mensaje("{esto no es json", 24), channel, procesador);
+
+        verify(channel).basicNack(24, false, false);
+        verifyNoInteractions(resultados);
     }
 
     @Test
@@ -153,6 +175,8 @@ class ConsumidorComandosTest {
         verify(channel).basicAck(14, false);
         verify(channel).basicAck(15, false);
         verify(channel, never()).basicNack(anyLong(), anyBoolean(), anyBoolean());
+        // El duplicado no se vuelve a informar.
+        verify(resultados, times(1)).publicar(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

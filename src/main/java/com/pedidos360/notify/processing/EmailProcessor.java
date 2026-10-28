@@ -104,6 +104,10 @@ public class EmailProcessor implements ProcesadorComando {
                 .append(p.estadoAnterior() == null || p.estadoAnterior().equals(estado) ? "" : p.estadoAnterior() + " -> ")
                 .append(estado).append('\n')
                 .append("Fecha: ").append(Formato.fecha(p.fecha())).append('\n');
+        if (p.usuarioNombre() != null) {
+            cuerpo.append("Realizado por: ").append(p.usuarioNombre())
+                    .append(p.usuarioRol() == null ? "" : " (" + p.usuarioRol() + ")").append('\n');
+        }
         if (p.items() != null && !p.items().isEmpty()) {
             cuerpo.append("\nDetalle:\n");
             p.items().forEach(i -> cuerpo.append("  - ").append(i.cantidad()).append(" x ")

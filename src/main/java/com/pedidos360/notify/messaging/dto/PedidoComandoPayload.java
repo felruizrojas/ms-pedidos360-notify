@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 /**
  * Payload igual para email.send, kitchen.ticket e invoice.gen. Los estados se leen como texto
  * (CREADO, ACEPTADO, ...) para no acoplar notify al enum de orders; estadoAnterior es null al crear.
+ * usuarioId/usuarioNombre/usuarioRol: quién hizo la acción (Cliente u Operador).
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PedidoComandoPayload(
@@ -20,7 +21,10 @@ public record PedidoComandoPayload(
         String estadoNuevo,
         BigDecimal total,
         List<Item> items,
-        Instant fecha) {
+        Instant fecha,
+        String usuarioId,
+        String usuarioNombre,
+        String usuarioRol) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Item(Long productoId, String productoNombre, Integer cantidad,

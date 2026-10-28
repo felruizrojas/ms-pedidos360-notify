@@ -88,7 +88,7 @@ class InvoiceProcessorTest {
         PedidoComandoPayload p = e.payload();
         CommandEnvelope sinEmail = new CommandEnvelope(e.type(), e.eventId(), e.timestamp(), e.traceId(), e.correlationId(),
                 new PedidoComandoPayload(p.pedidoId(), p.clienteId(), p.clienteNombre(), null, p.estadoAnterior(),
-                        p.estadoNuevo(), p.total(), p.items(), p.fecha()));
+                        p.estadoNuevo(), p.total(), p.items(), p.fecha(), p.usuarioId(), p.usuarioNombre(), p.usuarioRol()));
 
         assertThatThrownBy(() -> processor(true).procesar(sinEmail))
                 .isInstanceOf(MensajeInvalidoException.class)
