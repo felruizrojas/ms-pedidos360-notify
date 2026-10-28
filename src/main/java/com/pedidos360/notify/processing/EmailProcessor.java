@@ -1,5 +1,7 @@
 package com.pedidos360.notify.processing;
 
+import java.util.Set;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -31,6 +33,11 @@ public class EmailProcessor implements ProcesadorComando {
     @Override
     public String nombre() {
         return "email";
+    }
+
+    @Override
+    public Set<String> tiposAceptados() {
+        return Set.of("OrderCreated", "OrderStatusChanged");
     }
 
     @Override

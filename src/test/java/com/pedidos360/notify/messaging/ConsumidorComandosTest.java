@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ class ConsumidorComandosTest {
         ConsumidorProperties props = new ConsumidorProperties(3, Duration.ofMillis(1), 100);
         consumidor = new ConsumidorComandos(new JacksonJsonMessageConverter(Ejemplos.JSON), new EventIdCache(props), props);
         when(procesador.nombre()).thenReturn("email");
+        when(procesador.tiposAceptados()).thenReturn(Set.of("OrderCreated", "OrderStatusChanged"));
     }
 
     @Test
@@ -109,6 +111,27 @@ class ConsumidorComandosTest {
 
         verify(procesador, never()).procesar(any());
         verify(channel).basicNack(12, false, false);
+    }
+
+    @Test
+    void typeDeOtraColaHaceNackSinProcesar() throws Exception {
+        String json = Ejemplos.conType(Ejemplos.ENVELOPE_JSON, "KitchenTicketRequested");
+
+        consumidor.consumir(Ejemplos.mensaje(json, 18), channel, procesador);
+
+        verify(procesador, never()).procesar(any());
+        verify(channel).basicNack(18, false, false);
+        verify(channel, never()).basicAck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void sinTypeHaceNack() throws Exception {
+        String json = Ejemplos.ENVELOPE_JSON.replace("\"type\": \"OrderStatusChanged\",", "");
+
+        consumidor.consumir(Ejemplos.mensaje(json, 19), channel, procesador);
+
+        verify(procesador, never()).procesar(any());
+        verify(channel).basicNack(19, false, false);
     }
 
     @Test

@@ -73,7 +73,8 @@ Las colas se declaran **igual** que en orders y en `infra/mq/definitions.json`: 
 ## Variables de entorno
 | Variable | Default |
 |---|---|
-| `RABBIT_ADDRESSES` | `localhost:5672` (clúster: `host1:5672,host2:5672`) |
+| `RABBIT_ADDRESSES` | `localhost:5672` (clúster de `infra/mq`: `host:5672,host:5673`; si cae el nodo conectado, los listeners se reconectan al otro) |
+| `RABBIT_CONNECTION_TIMEOUT` | `3s` (espera por nodo antes de pasar al siguiente) |
 | `RABBIT_USERNAME` / `RABBIT_PASSWORD` | `guest` / `guest` |
 | `RABBIT_DECLARE_TOPOLOGY` | `true` (`false` si otro servicio ya declara la topología) |
 | `MAIL_ENABLED` | `false` (modo demo: el email solo va al log) |

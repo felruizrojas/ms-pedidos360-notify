@@ -4,8 +4,12 @@ server:
 spring:
   application:
     name: ms-pedidos360-notify
+  # Clúster de 2 nodos: RABBIT_ADDRESSES="ip1:5672,ip2:5672". Si el nodo conectado se cae, los listeners
+  # se reconectan al otro de la lista; las colas espejadas siguen ahí con sus mensajes.
   rabbitmq:
     addresses: ${RABBIT_ADDRESSES:localhost:5672}
+    # Por defecto el cliente espera 60 s por nodo: con un nodo apagado el failover tardaría eso.
+    connection-timeout: ${RABBIT_CONNECTION_TIMEOUT:3s}
     username: ${RABBIT_USERNAME:guest}
     password: ${RABBIT_PASSWORD:guest}
     listener:

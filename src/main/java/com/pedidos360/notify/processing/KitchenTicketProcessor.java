@@ -1,5 +1,7 @@
 package com.pedidos360.notify.processing;
 
+import java.util.Set;
+
 import org.springframework.stereotype.Component;
 
 import com.pedidos360.notify.messaging.dto.CommandEnvelope;
@@ -17,6 +19,11 @@ public class KitchenTicketProcessor implements ProcesadorComando {
     @Override
     public String nombre() {
         return "kitchen";
+    }
+
+    @Override
+    public Set<String> tiposAceptados() {
+        return Set.of("KitchenTicketRequested");
     }
 
     @Override

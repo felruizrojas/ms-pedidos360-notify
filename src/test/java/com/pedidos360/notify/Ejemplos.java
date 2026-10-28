@@ -54,6 +54,11 @@ public final class Ejemplos {
                 .replace("\"estadoNuevo\": \"ACEPTADO\"", "\"estadoNuevo\": \"" + estadoNuevo + "\"");
     }
 
+    /** Mismo JSON cambiando el "type" del sobre. */
+    public static String conType(String json, String type) {
+        return json.replace("\"type\": \"OrderStatusChanged\"", "\"type\": \"" + type + "\"");
+    }
+
     public static CommandEnvelope envelope(String estadoAnterior, String estadoNuevo) {
         return JSON.readValue(envelopeJson("e-1", estadoAnterior, estadoNuevo), CommandEnvelope.class);
     }

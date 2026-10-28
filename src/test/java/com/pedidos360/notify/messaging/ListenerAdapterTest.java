@@ -1,5 +1,8 @@
 package com.pedidos360.notify.messaging;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -33,8 +36,18 @@ class ListenerAdapterTest {
     @Test
     void mensajeDeOrdersConTypeIdAjenoHaceAck() throws Exception {
         Channel channel = mock(Channel.class);
-        entregar("kitchen", Ejemplos.envelopeJson("adapter-1", "CREADO", "ACEPTADO"), 31, channel);
+        entregar("kitchen", Ejemplos.conType(Ejemplos.envelopeJson("adapter-1", "CREADO", "ACEPTADO"),
+                "KitchenTicketRequested"), 31, channel);
         verify(channel).basicAck(31, false);
+    }
+
+    @Test
+    void comandoDeKitchenEnInvoiceHaceNack() throws Exception {
+        Channel channel = mock(Channel.class);
+        entregar("invoice", Ejemplos.conType(Ejemplos.envelopeJson("adapter-2", "DESPACHADO", "ENTREGADO"),
+                "KitchenTicketRequested"), 35, channel);
+        verify(channel).basicNack(35, false, false);
+        verify(channel, never()).basicAck(anyLong(), anyBoolean());
     }
 
     @Test

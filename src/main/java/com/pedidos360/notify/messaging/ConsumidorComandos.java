@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  * <ol>
  * <li>correlationId en el MDC (aparece en cada línea del log)</li>
  * <li>deserializa el sobre con el converter JSON (tipo fijo: se ignora __TypeId__)</li>
+ * <li>type del sobre que no corresponde a la cola → NACK sin reintentar</li>
  * <li>eventId repetido → ACK sin reprocesar</li>
  * <li>procesa con reintento local acotado (max-intentos); x-simular-error=true falla a propósito</li>
  * <li>éxito → basicAck; error → basicNack(requeue=false) y RabbitMQ lo manda a la DLQ por la policy dead-letter de la cola</li>
@@ -58,6 +59,7 @@ public class ConsumidorComandos {
                     MDC.put(MDC_CORRELATION_ID, envelope.correlationId());
                 }
                 MDC.put(MDC_EVENT_ID, envelope.eventId());
+                validarType(envelope, procesador);
 
                 if (eventIds.yaProcesado(envelope.eventId())) {
                     log.warn("[{}] eventId={} duplicado (pedido {}): ACK sin reprocesar",
@@ -102,6 +104,13 @@ public class ConsumidorComandos {
             throw new MensajeInvalidoException("El sobre no trae eventId");
         }
         return envelope;
+    }
+
+    private static void validarType(CommandEnvelope envelope, ProcesadorComando procesador) {
+        if (!procesador.tiposAceptados().contains(envelope.type())) {
+            throw new MensajeInvalidoException("type=" + envelope.type() + " no corresponde a la cola "
+                    + procesador.nombre() + " (acepta " + procesador.tiposAceptados() + ")");
+        }
     }
 
     private void procesarConReintentos(CommandEnvelope envelope, Message message, ProcesadorComando procesador) {

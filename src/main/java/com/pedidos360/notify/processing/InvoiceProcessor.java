@@ -1,6 +1,7 @@
 package com.pedidos360.notify.processing;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.ByteArrayResource;
@@ -36,6 +37,11 @@ public class InvoiceProcessor implements ProcesadorComando {
     @Override
     public String nombre() {
         return "invoice";
+    }
+
+    @Override
+    public Set<String> tiposAceptados() {
+        return Set.of("InvoiceRequested");
     }
 
     @Override
