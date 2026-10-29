@@ -17,8 +17,7 @@ import com.rabbitmq.client.Channel;
 
 class DlqListenerTest {
 
-    private final PublicadorResultados resultados = mock(PublicadorResultados.class);
-    private final DlqListener listener = new DlqListener(Ejemplos.JSON, resultados);
+    private final DlqListener listener = new DlqListener(Ejemplos.JSON);
 
     /** Como llega a q.cmd.email.dlq después de un basicNack(requeue=false) en q.cmd.email. */
     private static Message muerto(String body) {
@@ -79,29 +78,5 @@ class DlqListenerTest {
         listener.registrar(muerto(Ejemplos.ENVELOPE_JSON), channel);
 
         verify(channel).basicAck(21, false);
-        verify(resultados).publicar("0f8c7a52-3c1e-4a7e-9d43-6a1f0b9e2c11", 15L, "email", "OrderStatusChanged",
-                PublicadorResultados.EN_DLQ, "Rechazado (NACK): quedó en la DLQ", "q.cmd.email", "req-123");
-    }
-
-    @Test
-    void unMensajeExpiradoTambienSeInformaAOrders() throws Exception {
-        Message m = muerto(Ejemplos.ENVELOPE_JSON);
-        m.getMessageProperties().setHeader("x-first-death-reason", "expired");
-        m.getMessageProperties().setConsumerQueue("q.cmd.kitchen.dlq");
-
-        listener.registrar(m, mock(Channel.class));
-
-        verify(resultados).publicar(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(15L),
-                org.mockito.ArgumentMatchers.eq("kitchen"), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.eq(PublicadorResultados.EN_DLQ),
-                org.mockito.ArgumentMatchers.eq("Expiró sin que nadie lo consumiera (TTL): quedó en la DLQ"),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    void sinSobreLegibleNoSeInformaAOrders() throws Exception {
-        listener.registrar(muerto("{esto no es json"), mock(Channel.class));
-
-        org.mockito.Mockito.verifyNoInteractions(resultados);
     }
 }

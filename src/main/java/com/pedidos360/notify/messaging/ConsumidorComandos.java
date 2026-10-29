@@ -28,7 +28,6 @@ import lombok.extern.slf4j.Slf4j;
  * <li>eventId repetido → ACK sin reprocesar</li>
  * <li>procesa con reintento local acotado (max-intentos); x-simular-error=true falla a propósito</li>
  * <li>éxito → basicAck; error → basicNack(requeue=false) y RabbitMQ lo manda a la DLQ por la policy dead-letter de la cola</li>
- * <li>en ambos casos publica el resultado (PROCESADO o FALLIDO con el motivo) de vuelta a orders por RabbitMQ</li>
  * </ol>
  * Un mensaje inválido (JSON mal formado, sin eventId o sin datos obligatorios) no se reintenta.
  */
@@ -47,14 +46,12 @@ public class ConsumidorComandos {
     private final SmartMessageConverter converter;
     private final EventIdCache eventIds;
     private final ConsumidorProperties properties;
-    private final PublicadorResultados resultados;
 
     public void consumir(Message message, Channel channel, ProcesadorComando procesador) throws IOException {
         MessageProperties props = message.getMessageProperties();
         long deliveryTag = props.getDeliveryTag();
         MDC.put(MDC_CORRELATION_ID, props.getCorrelationId());
         CommandEnvelope envelope = null;
-        String motivo = null;
         try {
             boolean ok;
             try {
@@ -77,7 +74,6 @@ public class ConsumidorComandos {
             } catch (RuntimeException ex) {
                 log.error("[{}] No se pudo procesar el mensaje de {} (routingKey={}): {}. NACK sin reencolar -> DLQ",
                         procesador.nombre(), props.getConsumerQueue(), props.getReceivedRoutingKey(), ex.getMessage(), ex);
-                motivo = ex.getMessage();
                 ok = false;
             }
 
@@ -88,22 +84,10 @@ public class ConsumidorComandos {
             } else {
                 channel.basicNack(deliveryTag, false, false);
             }
-            informar(envelope, procesador, ok, motivo, props);
         } finally {
             MDC.remove(MDC_CORRELATION_ID);
             MDC.remove(MDC_EVENT_ID);
         }
-    }
-
-    /** Vuelta a orders. Sin sobre legible no hay pedido al que asociarlo: lo registra la DLQ. */
-    private void informar(CommandEnvelope envelope, ProcesadorComando procesador, boolean ok, String motivo,
-            MessageProperties props) {
-        if (envelope == null) {
-            return;
-        }
-        resultados.publicar(envelope.eventId(), envelope.payload() == null ? null : envelope.payload().pedidoId(),
-                procesador.nombre(), envelope.type(), ok ? PublicadorResultados.PROCESADO : PublicadorResultados.FALLIDO,
-                motivo, props.getConsumerQueue(), envelope.correlationId());
     }
 
     private CommandEnvelope deserializar(Message message) {

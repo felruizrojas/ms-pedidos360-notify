@@ -22,7 +22,7 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-no-reply@pedidos360.cl}
       NOTIFY_MAX_INTENTOS: ${NOTIFY_MAX_INTENTOS:-3}
-      NOTIFY_DLQ_LISTENERS: ${NOTIFY_DLQ_LISTENERS:-true}
+      NOTIFY_DLQ_LISTENERS: ${NOTIFY_DLQ_LISTENERS:-false}
     mem_limit: 512m
 
   mailpit:

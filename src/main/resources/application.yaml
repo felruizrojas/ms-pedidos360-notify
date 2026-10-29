@@ -44,8 +44,9 @@ pedidos360:
     max-intentos: ${NOTIFY_MAX_INTENTOS:3}
     espera-reintento: ${NOTIFY_ESPERA_REINTENTO:200ms}
     cache-event-ids: ${NOTIFY_CACHE_EVENT_IDS:10000}
-    # false: los listeners de las DLQ no arrancan y los mensajes quedan en la DLQ (para verlos en la UI).
-    dlq-listeners: ${NOTIFY_DLQ_LISTENERS:true}
+    # false (default): nadie consume las DLQ y los mensajes quedan en Ready como evidencia, para revisarlos,
+    # reprocesarlos (Move messages) o purgarlos desde la UI. true: los registra en el log y los saca de la DLQ.
+    dlq-listeners: ${NOTIFY_DLQ_LISTENERS:false}
   # Misma topología que ms-pedidos360-orders (ver "Contrato para otros servicios" en su README): si un
   # argumento difiere, RabbitMQ rechaza la declaración (PRECONDITION_FAILED).
   rabbit:
@@ -62,11 +63,6 @@ pedidos360:
       email: email.send
       kitchen: kitchen.ticket
       invoice: invoice.gen
-    # Vuelta hacia orders: aquí se publica el resultado de cada comando (orders lo muestra en el dashboard).
-    resultados:
-      exchange: evt.direct
-      queue: q.orders.resultados
-      routing-key: resultado.comando
     topic-patterns:
       email: "email.#"
       kitchen: "kitchen.#"
