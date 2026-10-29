@@ -29,6 +29,8 @@ public final class Ejemplos {
                 "estadoAnterior": "CREADO",
                 "estadoNuevo": "ACEPTADO",
                 "total": 2700.00,
+                "usuarioNombre": "María Pérez",
+                "usuarioRol": "Cliente",
                 "items": [
                   { "productoId": 1, "productoNombre": "Pan Amasado", "cantidad": 2, "precioUnitario": 600.00, "subtotal": 1200.00 },
                   { "productoId": 4, "productoNombre": "Café Americano", "cantidad": 1, "precioUnitario": 1500.00, "subtotal": 1500.00 }

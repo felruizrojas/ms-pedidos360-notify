@@ -28,6 +28,9 @@ class FormatoValidacionTest {
     @ParameterizedTest(name = "{2}")
     @CsvSource(delimiter = '|', textBlock = """
             "estadoNuevo": "ACEPTADO"            | "estadoNuevo": "PERDIDO"            | estado desconocido
+            "usuarioRol": "Cliente"              | "usuarioRol": "Hacker"              | rol que no existe en el sistema
+            "usuarioRol": "Cliente"              | "usuarioRol": "cliente"             | rol con otra capitalización
+            "usuarioRol": "Cliente",             | "usuarioRol": null,                 | sin rol
             "clienteEmail": "maria@contoso.cl"   | "clienteEmail": "maria-contoso"     | email sin @
             "total": 2700.00                     | "total": 9999.00                    | total distinto de la suma
             "cantidad": 2, "precioUnitario": 600.00, "subtotal": 1200.00 | "cantidad": 2, "precioUnitario": 600.00, "subtotal": 1300.00 | subtotal distinto de precio x cantidad

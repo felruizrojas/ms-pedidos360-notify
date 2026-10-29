@@ -24,6 +24,8 @@ final class Formato {
             .withZone(ZoneId.of("America/Santiago"));
     private static final Set<String> ESTADOS = Set.of("CREADO", "ACEPTADO", "EN_PREPARACION", "DESPACHADO",
             "ENTREGADO", "CANCELADO");
+    /** Los tres roles de la App registration de Entra ID. */
+    private static final Set<String> ROLES = Set.of("Admin", "Operador", "Cliente");
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private Formato() {
@@ -43,8 +45,9 @@ final class Formato {
     }
 
     /**
-     * Valida lo que todo comando de pedido debe traer bien: pedidoId, estado conocido, email con formato válido
-     * (si viene), ítems con cantidad y precio, subtotal = precio x cantidad y total = suma de subtotales.
+     * Valida lo que todo comando de pedido debe traer bien: pedidoId, estado conocido, rol del usuario que hizo la
+     * acción (Admin, Operador o Cliente), email con formato válido (si viene), ítems con cantidad y precio,
+     * subtotal = precio x cantidad y total = suma de subtotales.
      */
     static PedidoComandoPayload payload(CommandEnvelope envelope) {
         PedidoComandoPayload p = envelope.payload();
@@ -54,6 +57,10 @@ final class Formato {
         Long id = p.pedidoId();
         if (p.estadoNuevo() == null || !ESTADOS.contains(p.estadoNuevo())) {
             throw new MensajeInvalidoException("El pedido " + id + " trae un estadoNuevo desconocido: " + p.estadoNuevo());
+        }
+        if (p.usuarioRol() == null || !ROLES.contains(p.usuarioRol())) {
+            throw new MensajeInvalidoException("El pedido " + id + " trae un usuarioRol desconocido: " + p.usuarioRol()
+                    + " (acepta " + ROLES + ")");
         }
         if (p.clienteEmail() != null && !p.clienteEmail().isBlank() && !EMAIL.matcher(p.clienteEmail()).matches()) {
             throw new MensajeInvalidoException("El pedido " + id + " trae un clienteEmail inválido: " + p.clienteEmail());
