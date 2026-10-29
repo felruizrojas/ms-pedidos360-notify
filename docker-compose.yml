@@ -24,6 +24,12 @@ services:
       NOTIFY_MAX_INTENTOS: ${NOTIFY_MAX_INTENTOS:-3}
       NOTIFY_DLQ_LISTENERS: ${NOTIFY_DLQ_LISTENERS:-false}
     mem_limit: 512m
+    # Rotación de logs: un error en bucle no puede llenar el disco de la EC2 (máx. 3 archivos de 10 MB).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   mailpit:
     image: axllent/mailpit:v1.27
@@ -32,3 +38,9 @@ services:
     ports:
       - "8025:8025"   # UI web (notify le envía por SMTP al 1025 dentro de la red de Compose)
     mem_limit: 128m
+    # Rotación de logs: un error en bucle no puede llenar el disco de la EC2 (máx. 3 archivos de 10 MB).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
